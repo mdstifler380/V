@@ -16,49 +16,360 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Locate Android Project Root
-        id: find_dir
-        run: |
-          BUILD_FILE=$(find . -name "build.gradle" -not -path "*/app/*" | head -n 1)
-          if [ -n "$BUILD_FILE" ]; then
-            PROJECT_DIR=$(dirname "$BUILD_FILE")
-          else
-            PROJECT_DIR="."
-          fi
-          echo "Project directory: $PROJECT_DIR"
-          echo "dir=$PROJECT_DIR" >> $GITHUB_OUTPUT
-
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
-          cache: ''
 
-      - name: Set up Gradle Executable
-        working-directory: ${{ steps.find_dir.outputs.dir }}
+      - name: Generate Complete Android Project
         run: |
-          if [ -f "gradlew" ]; then
-            chmod +x gradlew
-          else
-            gradle wrapper
-            chmod +x gradlew
-          fi
+          mkdir -p VibeLabApp/app/src/main/java/com/vibelab/vibrationmeter
+          mkdir -p VibeLabApp/app/src/main/res/layout
+          mkdir -p VibeLabApp/app/src/main/res/values
+
+          # settings.gradle
+          cat << 'EOF' > VibeLabApp/settings.gradle
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          rootProject.name = "VibeLab Pro"
+          include ':app'
+          EOF
+
+          # root build.gradle
+          cat << 'EOF' > VibeLabApp/build.gradle
+          buildscript {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+              dependencies {
+                  classpath 'com.android.tools.build:gradle:8.2.2'
+              }
+          }
+          allprojects {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          EOF
+
+          # gradle.properties
+          cat << 'EOF' > VibeLabApp/gradle.properties
+          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+          android.useAndroidX=true
+          android.nonTransitiveRClass=true
+          EOF
+
+          # app/build.gradle
+          cat << 'EOF' > VibeLabApp/app/build.gradle
+          plugins {
+              id 'com.android.application'
+          }
+          android {
+              namespace 'com.vibelab.vibrationmeter'
+              compileSdk 34
+              defaultConfig {
+                  applicationId "com.vibelab.vibrationmeter"
+                  minSdk 26
+                  targetSdk 34
+                  versionCode 1
+                  versionName "1.0"
+              }
+              buildTypes {
+                  release {
+                      minifyEnabled false
+                  }
+                  debug {
+                      debuggable true
+                  }
+              }
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+          }
+          dependencies {
+              implementation 'androidx.appcompat:appcompat:1.6.1'
+              implementation 'com.google.android.material:material:1.11.0'
+          }
+          EOF
+
+          # AndroidManifest.xml
+          cat << 'EOF' > VibeLabApp/app/src/main/AndroidManifest.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <uses-permission android:name="android.permission.VIBRATE" />
+              <uses-permission android:name="android.permission.HIGH_SAMPLING_RATE_SENSORS" />
+              <application
+                  android:allowBackup="true"
+                  android:label="VibeLab Pro"
+                  android:supportsRtl="true"
+                  android:theme="@style/Theme.AppCompat.NoActionBar">
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true"
+                      android:screenOrientation="portrait">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+          # strings.xml
+          cat << 'EOF' > VibeLabApp/app/src/main/res/values/strings.xml
+          <resources>
+              <string name="app_name">VibeLab Pro</string>
+          </resources>
+          EOF
+
+          # activity_main.xml
+          cat << 'EOF' > VibeLabApp/app/src/main/res/layout/activity_main.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+              android:layout_width="match_parent"
+              android:layout_height="match_parent"
+              android:background="#090D16"
+              android:fillViewport="true">
+              <LinearLayout
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content"
+                  android:orientation="vertical"
+                  android:padding="24dp">
+                  <TextView
+                      android:layout_width="wrap_content"
+                      android:layout_height="wrap_content"
+                      android:text="VibeLab Pro"
+                      android:textColor="#22D3EE"
+                      android:textSize="26sp"
+                      android:textStyle="bold" />
+                  <TextView
+                      android:layout_width="wrap_content"
+                      android:layout_height="wrap_content"
+                      android:text="Samsung Galaxy S25 Hardware Vibration Tester"
+                      android:textColor="#94A3B8"
+                      android:textSize="13sp"
+                      android:layout_marginBottom="24dp" />
+                  <TextView
+                      android:id="@+id/tvPower"
+                      android:layout_width="wrap_content"
+                      android:layout_height="wrap_content"
+                      android:text="0.00 m/s²"
+                      android:textColor="#FFFFFF"
+                      android:textSize="44sp"
+                      android:textStyle="bold" />
+                  <TextView
+                      android:id="@+id/tvSeverity"
+                      android:layout_width="wrap_content"
+                      android:layout_height="wrap_content"
+                      android:text="Ready for Vibration Testing"
+                      android:textColor="#10B981"
+                      android:textSize="15sp"
+                      android:layout_marginTop="4dp" />
+                  <TextView
+                      android:id="@+id/tvRms"
+                      android:layout_width="wrap_content"
+                      android:layout_height="wrap_content"
+                      android:text="RMS: 0.00 m/s²"
+                      android:textColor="#38BDF8"
+                      android:textSize="15sp"
+                      android:layout_marginTop="16dp" />
+                  <TextView
+                      android:id="@+id/tvPeakG"
+                      android:layout_width="wrap_content"
+                      android:layout_height="wrap_content"
+                      android:text="Peak: 0.00 G"
+                      android:textColor="#F59E0B"
+                      android:textSize="15sp"
+                      android:layout_marginTop="4dp" />
+                  <View
+                      android:layout_width="match_parent"
+                      android:layout_height="1dp"
+                      android:background="#334155"
+                      android:layout_marginVertical="24dp" />
+                  <TextView
+                      android:layout_width="wrap_content"
+                      android:layout_height="wrap_content"
+                      android:text="Direct Motor Actuator Controls"
+                      android:textColor="#FFFFFF"
+                      android:textSize="16sp"
+                      android:textStyle="bold" />
+                  <Button
+                      android:id="@+id/btnVibrateMax"
+                      android:layout_width="match_parent"
+                      android:layout_height="54dp"
+                      android:text="⚡ 100% Max Continuous Vibrate (1s)"
+                      android:backgroundTint="#06B6D4"
+                      android:textColor="#090D16"
+                      android:textStyle="bold"
+                      android:layout_marginTop="14dp" />
+                  <Button
+                      android:id="@+id/btnVibratePulse"
+                      android:layout_width="match_parent"
+                      android:layout_height="54dp"
+                      android:text="💓 Multi-Step Pulse Burst"
+                      android:backgroundTint="#1E293B"
+                      android:textColor="#E2E8F0"
+                      android:layout_marginTop="10dp" />
+                  <Button
+                      android:id="@+id/btnStopVibrate"
+                      android:layout_width="match_parent"
+                      android:layout_height="54dp"
+                      android:text="■ Stop Motor"
+                      android:backgroundTint="#BE123C"
+                      android:textColor="#FFFFFF"
+                      android:layout_marginTop="10dp" />
+              </LinearLayout>
+          </ScrollView>
+          EOF
+
+          # MainActivity.java
+          cat << 'EOF' > VibeLabApp/app/src/main/java/com/vibelab/vibrationmeter/MainActivity.java
+          package com.vibelab.vibrationmeter;
+
+          import android.content.Context;
+          import android.hardware.Sensor;
+          import android.hardware.SensorEvent;
+          import android.hardware.SensorEventListener;
+          import android.hardware.SensorManager;
+          import android.os.Build;
+          import android.os.Bundle;
+          import android.os.VibrationEffect;
+          import android.os.Vibrator;
+          import android.os.VibratorManager;
+          import android.widget.Button;
+          import android.widget.TextView;
+          import androidx.appcompat.app.AppCompatActivity;
+
+          public class MainActivity extends AppCompatActivity implements SensorEventListener {
+              private SensorManager sensorManager;
+              private Sensor accelerometer;
+              private Vibrator vibrator;
+              private TextView tvPower, tvRms, tvPeakG, tvSeverity;
+              private Button btnVibrateMax, btnVibratePulse, btnStopVibrate;
+              private float peakMag = 0f;
+              private final float[] recentMags = new float[50];
+              private int sampleIndex = 0;
+
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  setContentView(R.layout.activity_main);
+                  tvPower = findViewById(R.id.tvPower);
+                  tvRms = findViewById(R.id.tvRms);
+                  tvPeakG = findViewById(R.id.tvPeakG);
+                  tvSeverity = findViewById(R.id.tvSeverity);
+                  btnVibrateMax = findViewById(R.id.btnVibrateMax);
+                  btnVibratePulse = findViewById(R.id.btnVibratePulse);
+                  btnStopVibrate = findViewById(R.id.btnStopVibrate);
+
+                  sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+                  if (sensorManager != null) {
+                      accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
+                      if (accelerometer == null) accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+                  }
+
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                      VibratorManager vm = (VibratorManager) getSystemService(Context.VIBRATOR_MANAGER_SERVICE);
+                      vibrator = vm.getDefaultVibrator();
+                  } else {
+                      vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+                  }
+
+                  btnVibrateMax.setOnClickListener(v -> triggerVibration(1000, 255));
+                  btnVibratePulse.setOnClickListener(v -> {
+                      long[] timings = new long[]{0, 150, 100, 250, 100, 400};
+                      int[] amplitudes = new int[]{0, 180, 0, 220, 0, 255};
+                      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && vibrator != null && vibrator.hasAmplitudeControl()) {
+                          vibrator.vibrate(VibrationEffect.createWaveform(timings, amplitudes, -1));
+                      } else if (vibrator != null) {
+                          vibrator.vibrate(timings, -1);
+                      }
+                  });
+                  btnStopVibrate.setOnClickListener(v -> {
+                      if (vibrator != null) vibrator.cancel();
+                  });
+              }
+
+              private void triggerVibration(long durationMs, int amplitude) {
+                  if (vibrator == null || !vibrator.hasVibrator()) return;
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                      int amp = vibrator.hasAmplitudeControl() ? amplitude : VibrationEffect.DEFAULT_AMPLITUDE;
+                      vibrator.vibrate(VibrationEffect.createOneShot(durationMs, amp));
+                  } else {
+                      vibrator.vibrate(durationMs);
+                  }
+              }
+
+              @Override
+              protected void onResume() {
+                  super.onResume();
+                  if (accelerometer != null) sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_UI);
+              }
+
+              @Override
+              protected void onPause() {
+                  super.onPause();
+                  if (sensorManager != null) sensorManager.unregisterListener(this);
+                  if (vibrator != null) vibrator.cancel();
+              }
+
+              @Override
+              public void onSensorChanged(SensorEvent event) {
+                  float x = event.values[0];
+                  float y = event.values[1];
+                  float z = event.values[2];
+                  float mag = (float) Math.sqrt(x * x + y * y + z * z);
+                  recentMags[sampleIndex % recentMags.length] = mag;
+                  sampleIndex++;
+                  float sumSq = 0;
+                  for (float m : recentMags) sumSq += (m * m);
+                  float rms = (float) Math.sqrt(sumSq / recentMags.length);
+                  if (mag > peakMag) peakMag = mag;
+                  float peakG = peakMag / 9.80665f;
+                  tvPower.setText(String.format("%.2f m/s²", mag));
+                  tvRms.setText(String.format("RMS: %.2f m/s²", rms));
+                  tvPeakG.setText(String.format("Peak: %.2f G (%.2f m/s²)", peakG, peakMag));
+                  if (rms < 1.5f) tvSeverity.setText("ISO Zone A (Ambient Floor)");
+                  else if (rms < 5.5f) tvSeverity.setText("ISO Zone B (Normal Haptic Vibration)");
+                  else if (rms < 12.0f) tvSeverity.setText("ISO Zone C (Strong Mechanical Vibration)");
+                  else tvSeverity.setText("ISO Zone D (Severe Shock / Resonance)");
+              }
+
+              @Override
+              public void onAccuracyChanged(Sensor sensor, int accuracy) {}
+          }
+          EOF
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: 8.2
 
       - name: Build Debug APK
-        working-directory: ${{ steps.find_dir.outputs.dir }}
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
-
-      - name: Locate and Collect APK
-        run: |
-          mkdir -p apk_output
-          find . -name "*.apk" -exec cp {} apk_output/ \;
-          ls -la apk_output/
+        working-directory: VibeLabApp
+        run: gradle assembleDebug --no-daemon --stacktrace
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: VibeLab-Pro-APK
-          path: apk_output/*.apk
+          path: VibeLabApp/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 14
